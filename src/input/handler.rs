@@ -42,6 +42,38 @@ fn handle_normal_mode(app: &mut AppState, key: KeyEvent) -> Result<bool> {
             Ok(false)
         }
 
+        // Scroll done pane (when visible) using [ and ]
+        KeyCode::Char('[') => {
+            if app.show_done {
+                app.scroll_done_up();
+            }
+            Ok(false)
+        }
+        KeyCode::Char(']') => {
+            if app.show_done {
+                app.scroll_done_down();
+            }
+            Ok(false)
+        }
+        KeyCode::Char('{') => {
+            if app.show_done {
+                // Scroll up by 5 lines
+                for _ in 0..5 {
+                    app.scroll_done_up();
+                }
+            }
+            Ok(false)
+        }
+        KeyCode::Char('}') => {
+            if app.show_done {
+                // Scroll down by 5 lines
+                for _ in 0..5 {
+                    app.scroll_done_down();
+                }
+            }
+            Ok(false)
+        }
+
         // Toggle run/pause
         KeyCode::Enter => {
             app.toggle_run_pause();

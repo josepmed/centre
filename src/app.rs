@@ -96,6 +96,9 @@ pub struct AppState {
 
     // Animation frame counter for ASCII animations (increments every tick)
     pub animation_frame: u32,
+
+    // Scroll offset for done pane
+    pub done_scroll_offset: usize,
 }
 
 impl AppState {
@@ -194,6 +197,9 @@ impl AppState {
 
             // Initialize animation frame counter
             animation_frame: 0,
+
+            // Initialize done scroll offset
+            done_scroll_offset: 0,
         }
     }
 
@@ -242,6 +248,10 @@ impl AppState {
     /// Toggle showing done tasks
     pub fn toggle_show_done(&mut self) {
         self.show_done = !self.show_done;
+        // Reset scroll when toggling view
+        if self.show_done {
+            self.reset_done_scroll();
+        }
     }
 
     /// Get the currently selected item (returns task_index and optional subtask_index)
@@ -1484,6 +1494,31 @@ impl AppState {
             }
         }
         self.needs_save = true;
+    }
+
+    /// Scroll the done pane up
+    pub fn scroll_done_up(&mut self) {
+        if self.done_scroll_offset > 0 {
+            self.done_scroll_offset -= 1;
+        }
+    }
+
+    /// Scroll the done pane down
+    pub fn scroll_done_down(&mut self) {
+        // Calculate total number of lines (tasks + subtasks)
+        let total_lines: usize = self.done_today.iter()
+            .map(|task| 1 + task.subtasks.len())
+            .sum();
+
+        // Allow scrolling as long as there are items
+        if total_lines > 0 {
+            self.done_scroll_offset += 1;
+        }
+    }
+
+    /// Reset done scroll offset (when switching views or adding items)
+    pub fn reset_done_scroll(&mut self) {
+        self.done_scroll_offset = 0;
     }
 }
 

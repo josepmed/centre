@@ -14,6 +14,7 @@ pub fn render_keybindings(f: &mut Frame, area: Rect) {
         Span::raw("x/r archive   "),
         Span::raw("a add   "),
         Span::raw("A subtask   "),
+        Span::raw("[ / ] scroll   "),
         Span::raw("j journal   "),
         Span::raw("m mode   "),
         Span::raw("c done-view   "),
