@@ -1,0 +1,76 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: josepmed/homebrew-centre
+          token: ${{ secrets.TAP_REPO_TOKEN }}
+          path: homebrew-centre
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+          # Download SHA256 checksums from release assets
+          ARM64_SHA=$(curl -sL "https://github.com/josepmed/centre/releases/download/v${VERSION}/centre-${VERSION}-arm64-apple-darwin.tar.gz.sha256" | awk '{print $1}')
+          X86_64_SHA=$(curl -sL "https://github.com/josepmed/centre/releases/download/v${VERSION}/centre-${VERSION}-x86_64-apple-darwin.tar.gz.sha256" | awk '{print $1}')
+
+          echo "arm64_sha=${ARM64_SHA}" >> $GITHUB_OUTPUT
+          echo "x86_64_sha=${X86_64_SHA}" >> $GITHUB_OUTPUT
+
+          echo "Version: ${VERSION}"
+          echo "ARM64 SHA: ${ARM64_SHA}"
+          echo "x86_64 SHA: ${X86_64_SHA}"
+
+      - name: Update formula
+        run: |
+          cd homebrew-centre/Formula
+          VERSION=${{ steps.release.outputs.version }}
+          ARM64_SHA=${{ steps.release.outputs.arm64_sha }}
+          X86_64_SHA=${{ steps.release.outputs.x86_64_sha }}
+
+          # Update version
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" centre.rb
+
+          # Update download URLs
+          sed -i "s|releases/download/v[0-9.]*/centre-[0-9.]*-arm64|releases/download/v${VERSION}/centre-${VERSION}-arm64|" centre.rb
+          sed -i "s|releases/download/v[0-9.]*/centre-[0-9.]*-x86_64|releases/download/v${VERSION}/centre-${VERSION}-x86_64|" centre.rb
+
+          # Update SHA256 hashes - find and replace within the arm64 and x86_64 sections
+          # For arm64 (inside the if Hardware::CPU.arm? block)
+          awk -v sha="${ARM64_SHA}" '
+            /if Hardware::CPU.arm?/ { in_arm=1 }
+            /else/ { in_arm=0 }
+            in_arm && /sha256/ { sub(/sha256 "[^"]*"/, "sha256 \"" sha "\"") }
+            { print }
+          ' centre.rb > centre.rb.tmp && mv centre.rb.tmp centre.rb
+
+          # For x86_64 (inside the else block)
+          awk -v sha="${X86_64_SHA}" '
+            /else/ { in_x86=1; print; next }
+            /end/ && in_x86 { in_x86=0 }
+            in_x86 && /sha256/ { sub(/sha256 "[^"]*"/, "sha256 \"" sha "\"") }
+            { print }
+          ' centre.rb > centre.rb.tmp && mv centre.rb.tmp centre.rb
+
+          echo "Updated formula:"
+          cat centre.rb
+
+      - name: Commit and push
+        run: |
+          cd homebrew-centre
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/centre.rb
+          git commit -m "Update centre to v${{ steps.release.outputs.version }}"
+          git push
