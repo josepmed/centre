@@ -14,6 +14,8 @@ pub struct AppMetadata {
     #[serde(default)]
     pub mode_time_working_secs: i64,
     #[serde(default)]
+    pub mode_time_break_secs: i64,
+    #[serde(default)]
     pub mode_time_lunch_secs: i64,
     #[serde(default)]
     pub mode_time_gym_secs: i64,
@@ -34,6 +36,7 @@ impl Default for AppMetadata {
             global_mode: GlobalMode::Working,
             paused_by_mode_task_ids: Vec::new(),
             mode_time_working_secs: 0,
+            mode_time_break_secs: 0,
             mode_time_lunch_secs: 0,
             mode_time_gym_secs: 0,
             mode_time_dinner_secs: 0,

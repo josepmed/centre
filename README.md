@@ -8,7 +8,7 @@ Centre supports both global task tracking (`~/.centre/`) and local project-speci
 
 ## Features
 
-- **Context mode switching**: Track your daily rhythm across 6 modes (💼 Working, 🍽 Lunch, 🏋️ Gym, 🍲 Dinner, 🏡 Personal, 🌙 Sleep)
+- **Context mode switching**: Track your daily rhythm across 7 modes (💼 Working, ☁️ Break, 🍽 Lunch, 🏋️ Gym, 🍲 Dinner, 🏡 Personal, 🌙 Sleep)
 - **Dynamic TUI layout**: Today's Centre List, Details Pane, Focus Garden, and optional Done Tasks view
 - **Hierarchical tasks**: Support for tasks with nested subtasks (one level deep)
 - **Smart estimates**: Shows subtask-based estimates alongside task estimates when they differ
@@ -114,7 +114,7 @@ centre report --date 2025-11-10 --output /tmp/yesterday-report.md
 
 **Report Contents:**
 - Summary (task counts, total time, efficiency, completion rate)
-- Context Modes (time spent in each mode: Working, Lunch, Gym, Dinner, Personal, Sleep)
+- Context Modes (time spent in each mode: Working, Break, Lunch, Gym, Dinner, Personal, Sleep)
 - Time & Productivity (running/paused/idle time, sessions, interruptions)
 - Estimation Accuracy (over/under estimates, accuracy percentage)
 - Task Completion (completed count, average time, fastest/longest tasks)
@@ -157,7 +157,7 @@ This creates a `.centre/` directory in your current location for project-specifi
 - `a` - Add new task (opens input form)
 - `A` - Add subtask to selected task (opens input form)
 - `j` - Toggle journal editing mode
-- `m` - Open context mode selector (Working, Lunch, Gym, Dinner, Personal, Sleep)
+- `m` - Open context mode selector (Working, Break, Lunch, Gym, Dinner, Personal, Sleep)
 - `q` - Quit (autosaves)
 
 ### Input Form (Adding Task/Subtask)
@@ -172,11 +172,12 @@ When adding a new task or subtask:
 ### Context Mode Selector (press `m`)
 Select your current life context:
 - `1` - 💼 Working (timers run normally)
-- `2` - 🍽 Lunch (all tasks paused)
-- `3` - 🏋️ Gym (all tasks paused)
-- `4` - 🍲 Dinner (all tasks paused)
-- `5` - 🏡 Personal (all tasks paused)
-- `6` - 🌙 Sleep (all tasks paused)
+- `2` - ☁️ Break (all tasks paused)
+- `3` - 🍽 Lunch (all tasks paused)
+- `4` - 🏋️ Gym (all tasks paused)
+- `5` - 🍲 Dinner (all tasks paused)
+- `6` - 🏡 Personal (all tasks paused)
+- `7` - 🌙 Sleep (all tasks paused)
 - `Esc` - Cancel
 
 ### Modal (Estimate Reached)
@@ -206,7 +207,8 @@ Centre helps you track your entire day, not just work time. The context mode sys
 Press `m` to open the mode selector and choose your current context:
 
 - **💼 Working** - Active focus time (default mode). Timers run normally, tasks can be started/paused/resumed.
-- **🍽 Lunch** - Break time for meals. All running tasks automatically pause, new tasks cannot be started.
+- **☁️ Break** - Short break time. All running tasks automatically pause, new tasks cannot be started.
+- **🍽 Lunch** - Meal break time. All running tasks automatically pause, new tasks cannot be started.
 - **🏋️ Gym** - Exercise time. All running tasks automatically pause.
 - **🍲 Dinner** - Evening meal time. All running tasks automatically pause.
 - **🏡 Personal** - Personal errands and non-work activities. All running tasks automatically pause.
@@ -234,6 +236,7 @@ Centre tracks time spent in each mode throughout your day:
 ### Contextual Phrases
 
 When in non-working modes, the Focus Garden displays contextual encouragement:
+- ☁️ Break: "Breathe and reset"
 - 🍽 Lunch: "Nourish before you bloom again"
 - 🏋️ Gym: "Strength feeds focus"
 - 🍲 Dinner: "Evening nourishment"
@@ -447,7 +450,7 @@ Run `centre` to see which directory is active (shown at startup). Use `centre in
 - ✅ Core TUI with three panes (list, details, garden)
 - ✅ Tasks and subtasks with independent timers
 - ✅ Run/pause/done workflow
-- ✅ Context mode switching (6 modes: Working, Lunch, Gym, Dinner, Personal, Sleep)
+- ✅ Context mode switching (7 modes: Working, Break, Lunch, Gym, Dinner, Personal, Sleep)
 - ✅ Automatic task pause/resume on mode changes
 - ✅ Mode time tracking with daily persistence
 - ✅ Intelligent mode handling (tasks only start in Working mode)

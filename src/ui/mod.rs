@@ -1,3 +1,4 @@
+pub mod animation_pane;
 pub mod details_pane;
 pub mod done_pane;
 pub mod garden_pane;
@@ -11,6 +12,7 @@ pub mod styles;
 
 use crate::app::AppState;
 use crate::domain::UiMode;
+use animation_pane::render_animation_pane;
 use details_pane::render_details_pane;
 use done_pane::render_done_pane;
 use garden_pane::render_garden_pane;
@@ -39,6 +41,11 @@ pub fn render(f: &mut Frame, app: &mut AppState) {
     // Render done pane if showing
     if let Some(done_area) = layout.done_area {
         render_done_pane(f, app, done_area);
+    }
+
+    // Render animation pane if showing
+    if let Some(animation_area) = layout.animation_area {
+        render_animation_pane(f, app, animation_area);
     }
 
     // Render day changed modal (takes precedence)

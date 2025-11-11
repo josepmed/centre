@@ -78,6 +78,8 @@ pub enum GlobalState {
 pub enum GlobalMode {
     /// Active focus time. Default mode. Timers run normally.
     Working,
+    /// Short break. All tasks paused.
+    Break,
     /// Lunch break. All tasks paused.
     Lunch,
     /// Gym/exercise time. All tasks paused.
@@ -95,6 +97,7 @@ impl GlobalMode {
     pub fn symbol(&self) -> &'static str {
         match self {
             GlobalMode::Working => "💼",
+            GlobalMode::Break => "☁️",
             GlobalMode::Lunch => "🍽",
             GlobalMode::Gym => "🏋️",
             GlobalMode::Dinner => "🍲",
@@ -107,6 +110,7 @@ impl GlobalMode {
     pub fn name(&self) -> &'static str {
         match self {
             GlobalMode::Working => "Working",
+            GlobalMode::Break => "Break",
             GlobalMode::Lunch => "Lunch",
             GlobalMode::Gym => "Gym",
             GlobalMode::Dinner => "Dinner",
@@ -119,6 +123,7 @@ impl GlobalMode {
     pub fn contextual_phrase(&self) -> &'static str {
         match self {
             GlobalMode::Working => "",
+            GlobalMode::Break => "Breathe and reset ☁️",
             GlobalMode::Lunch => "Nourish before you bloom again 🍽",
             GlobalMode::Gym => "Strength feeds focus 🏋️",
             GlobalMode::Dinner => "Evening nourishment 🍲",
@@ -136,6 +141,7 @@ impl GlobalMode {
     pub fn all() -> &'static [GlobalMode] {
         &[
             GlobalMode::Working,
+            GlobalMode::Break,
             GlobalMode::Lunch,
             GlobalMode::Gym,
             GlobalMode::Dinner,

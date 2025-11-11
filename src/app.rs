@@ -32,6 +32,20 @@ pub enum UndoAction {
         subtask_index: Option<usize>,
         task_index: usize,
     },
+    Deleted {
+        item: Item,
+        was_subtask: bool,
+        parent_task_index: Option<usize>,
+        subtask_index: Option<usize>,
+        task_index: usize,
+    },
+    Archived {
+        item: Item,
+        was_subtask: bool,
+        parent_task_index: Option<usize>,
+        subtask_index: Option<usize>,
+        task_index: usize,
+    },
 }
 
 /// Main application state
@@ -72,12 +86,16 @@ pub struct AppState {
     pub global_mode: GlobalMode,
     pub last_mode_change: Instant,
     pub mode_time_working: Duration,
+    pub mode_time_break: Duration,
     pub mode_time_lunch: Duration,
     pub mode_time_gym: Duration,
     pub mode_time_dinner: Duration,
     pub mode_time_personal: Duration,
     pub mode_time_sleep: Duration,
     pub paused_by_mode_task_ids: Vec<Uuid>, // Tasks that were paused by mode change
+
+    // Animation frame counter for ASCII animations (increments every tick)
+    pub animation_frame: u32,
 }
 
 impl AppState {
@@ -105,6 +123,7 @@ impl AppState {
         // Reset mode times if it's a new day
         if should_reset_mode_times {
             metadata.mode_time_working_secs = 0;
+            metadata.mode_time_break_secs = 0;
             metadata.mode_time_lunch_secs = 0;
             metadata.mode_time_gym_secs = 0;
             metadata.mode_time_dinner_secs = 0;
@@ -121,6 +140,7 @@ impl AppState {
 
         // Load mode times from metadata (stored as seconds)
         let mode_time_working = Duration::seconds(metadata.mode_time_working_secs);
+        let mode_time_break = Duration::seconds(metadata.mode_time_break_secs);
         let mode_time_lunch = Duration::seconds(metadata.mode_time_lunch_secs);
         let mode_time_gym = Duration::seconds(metadata.mode_time_gym_secs);
         let mode_time_dinner = Duration::seconds(metadata.mode_time_dinner_secs);
@@ -164,12 +184,16 @@ impl AppState {
             global_mode: metadata.global_mode,
             last_mode_change: now,
             mode_time_working,
+            mode_time_break,
             mode_time_lunch,
             mode_time_gym,
             mode_time_dinner,
             mode_time_personal,
             mode_time_sleep,
             paused_by_mode_task_ids,
+
+            // Initialize animation frame counter
+            animation_frame: 0,
         }
     }
 
@@ -196,11 +220,12 @@ impl AppState {
                 .collect(),
             // Save mode times as seconds
             mode_time_working_secs: mode_times[0].1.num_seconds(),
-            mode_time_lunch_secs: mode_times[1].1.num_seconds(),
-            mode_time_gym_secs: mode_times[2].1.num_seconds(),
-            mode_time_dinner_secs: mode_times[3].1.num_seconds(),
-            mode_time_personal_secs: mode_times[4].1.num_seconds(),
-            mode_time_sleep_secs: mode_times[5].1.num_seconds(),
+            mode_time_break_secs: mode_times[1].1.num_seconds(),
+            mode_time_lunch_secs: mode_times[2].1.num_seconds(),
+            mode_time_gym_secs: mode_times[3].1.num_seconds(),
+            mode_time_dinner_secs: mode_times[4].1.num_seconds(),
+            mode_time_personal_secs: mode_times[5].1.num_seconds(),
+            mode_time_sleep_secs: mode_times[6].1.num_seconds(),
             last_mode_change_timestamp: Some(chrono::Local::now().to_rfc3339()),
         };
 
@@ -452,7 +477,7 @@ impl AppState {
         Ok(())
     }
 
-    /// Undo the last action (currently only supports undoing mark_done)
+    /// Undo the last action (supports undoing mark_done, delete, and archive)
     pub fn undo(&mut self) -> Result<()> {
         if let Some(action) = self.undo_stack.pop() {
             match action {
@@ -466,6 +491,61 @@ impl AppState {
                     // Find and remove the item from done_today
                     if let Some(done_idx) = self.done_today.iter().position(|i| i.id == item.id) {
                         self.done_today.remove(done_idx);
+                    }
+
+                    // Restore the item to its original position
+                    if was_subtask {
+                        // Restore as subtask
+                        if let Some(parent_idx) = parent_task_index {
+                            if parent_idx < self.tasks.len() {
+                                // Insert at the end of subtasks (original position may not be valid anymore)
+                                self.tasks[parent_idx].subtasks.push(item);
+                            }
+                        }
+                    } else {
+                        // Restore as task
+                        // Insert at original position if valid, otherwise at the end
+                        let insert_pos = task_index.min(self.tasks.len());
+                        self.tasks.insert(insert_pos, item);
+                    }
+
+                    self.needs_save = true;
+                }
+                UndoAction::Deleted {
+                    item,
+                    was_subtask,
+                    parent_task_index,
+                    subtask_index: _,
+                    task_index,
+                } => {
+                    // Restore the item to its original position
+                    if was_subtask {
+                        // Restore as subtask
+                        if let Some(parent_idx) = parent_task_index {
+                            if parent_idx < self.tasks.len() {
+                                // Insert at the end of subtasks (original position may not be valid anymore)
+                                self.tasks[parent_idx].subtasks.push(item);
+                            }
+                        }
+                    } else {
+                        // Restore as task
+                        // Insert at original position if valid, otherwise at the end
+                        let insert_pos = task_index.min(self.tasks.len());
+                        self.tasks.insert(insert_pos, item);
+                    }
+
+                    self.needs_save = true;
+                }
+                UndoAction::Archived {
+                    item,
+                    was_subtask,
+                    parent_task_index,
+                    subtask_index: _,
+                    task_index,
+                } => {
+                    // Find and remove the item from archived_today
+                    if let Some(archived_idx) = self.archived_today.iter().position(|i| i.id == item.id) {
+                        self.archived_today.remove(archived_idx);
                     }
 
                     // Restore the item to its original position
@@ -537,6 +617,14 @@ impl AppState {
     /// Archive selected item (moves to ARCHIVED section of daily file)
     pub fn archive_selected(&mut self) -> Result<()> {
         if let Some((task_idx, subtask_idx)) = self.get_selected_item() {
+            // Clone the item before removing it (for undo)
+            let item_to_undo = if let Some(st_idx) = subtask_idx {
+                self.tasks[task_idx].subtasks[st_idx].clone()
+            } else {
+                self.tasks[task_idx].clone()
+            };
+
+            // Remove the item
             let item = if let Some(st_idx) = subtask_idx {
                 self.tasks[task_idx].subtasks.remove(st_idx)
             } else {
@@ -545,6 +633,20 @@ impl AppState {
 
             // Add to archived_today list (will be in ARCHIVED section of daily file)
             self.archived_today.push(item);
+
+            // Save undo information
+            self.undo_stack.push(UndoAction::Archived {
+                item: item_to_undo,
+                was_subtask: subtask_idx.is_some(),
+                parent_task_index: if subtask_idx.is_some() { Some(task_idx) } else { None },
+                subtask_index: subtask_idx,
+                task_index: task_idx,
+            });
+
+            // Keep only the last 10 undo actions
+            if self.undo_stack.len() > 10 {
+                self.undo_stack.remove(0);
+            }
 
             // Adjust selection if needed
             let flat_rows = flatten_tasks(&self.tasks);
@@ -561,17 +663,39 @@ impl AppState {
     /// Delete the selected task or subtask
     pub fn delete_selected(&mut self) {
         if let Some((task_idx, subtask_idx)) = self.get_selected_item() {
+            // Clone the item before removing it (for undo)
+            let item_to_undo = if let Some(st_idx) = subtask_idx {
+                self.tasks[task_idx].subtasks[st_idx].clone()
+            } else {
+                // Only delete task if it has no subtasks
+                if !self.tasks[task_idx].subtasks.is_empty() {
+                    // Don't delete tasks with subtasks - they must delete or archive subtasks first
+                    return;
+                }
+                self.tasks[task_idx].clone()
+            };
+
+            // Remove the item
             if let Some(st_idx) = subtask_idx {
                 // Delete subtask
                 self.tasks[task_idx].subtasks.remove(st_idx);
             } else {
-                // Delete entire task - but only if it has no subtasks
-                if self.tasks[task_idx].subtasks.is_empty() {
-                    self.tasks.remove(task_idx);
-                } else {
-                    // Don't delete tasks with subtasks - they must delete or archive subtasks first
-                    return;
-                }
+                // Delete entire task
+                self.tasks.remove(task_idx);
+            }
+
+            // Save undo information
+            self.undo_stack.push(UndoAction::Deleted {
+                item: item_to_undo,
+                was_subtask: subtask_idx.is_some(),
+                parent_task_index: if subtask_idx.is_some() { Some(task_idx) } else { None },
+                subtask_index: subtask_idx,
+                task_index: task_idx,
+            });
+
+            // Keep only the last 10 undo actions
+            if self.undo_stack.len() > 10 {
+                self.undo_stack.remove(0);
             }
 
             // Adjust selection if needed
@@ -753,6 +877,9 @@ impl AppState {
         }
 
         self.last_tick = now;
+
+        // Increment animation frame counter (wraps at u32::MAX)
+        self.animation_frame = self.animation_frame.wrapping_add(1);
     }
 
     /// Check if any running items have hit their estimate
@@ -1195,6 +1322,7 @@ impl AppState {
 
         match previous_mode {
             GlobalMode::Working => self.mode_time_working = self.mode_time_working + duration,
+            GlobalMode::Break => self.mode_time_break = self.mode_time_break + duration,
             GlobalMode::Lunch => self.mode_time_lunch = self.mode_time_lunch + duration,
             GlobalMode::Gym => self.mode_time_gym = self.mode_time_gym + duration,
             GlobalMode::Dinner => self.mode_time_dinner = self.mode_time_dinner + duration,
@@ -1254,7 +1382,7 @@ impl AppState {
     }
 
     /// Get time spent in each mode
-    pub fn get_mode_times(&self) -> [(GlobalMode, Duration); 6] {
+    pub fn get_mode_times(&self) -> [(GlobalMode, Duration); 7] {
         // Include time in current mode
         let now = Instant::now();
         let elapsed_in_current = now.duration_since(self.last_mode_change);
@@ -1262,6 +1390,7 @@ impl AppState {
 
         let mut times = [
             (GlobalMode::Working, self.mode_time_working),
+            (GlobalMode::Break, self.mode_time_break),
             (GlobalMode::Lunch, self.mode_time_lunch),
             (GlobalMode::Gym, self.mode_time_gym),
             (GlobalMode::Dinner, self.mode_time_dinner),
@@ -1651,5 +1780,147 @@ mod tests {
         // Now it should work
         app.toggle_run_pause();
         assert_eq!(app.tasks[0].status, RunStatus::Running);
+    }
+
+    #[test]
+    fn test_undo_delete() {
+        let mut app = create_test_app();
+        let initial_task_count = app.tasks.len();
+        let task_title = app.tasks[0].title.clone();
+
+        // Delete first task
+        app.delete_selected();
+
+        // Verify task was deleted
+        assert_eq!(app.tasks.len(), initial_task_count - 1);
+
+        // Verify undo stack has an entry
+        assert_eq!(app.undo_stack.len(), 1);
+
+        // Undo the action
+        app.undo().unwrap();
+
+        // Verify task was restored
+        assert_eq!(app.tasks.len(), initial_task_count);
+        assert_eq!(app.tasks[0].title, task_title);
+
+        // Verify undo stack is empty
+        assert_eq!(app.undo_stack.len(), 0);
+    }
+
+    #[test]
+    fn test_undo_delete_subtask() {
+        let mut app = create_test_app();
+        app.add_subtask("Test subtask".to_string(), Duration::minutes(30));
+
+        let initial_subtask_count = app.tasks[0].subtasks.len();
+        let subtask_title = app.tasks[0].subtasks[0].title.clone();
+
+        // Select the subtask (move down once)
+        app.move_selection_down();
+
+        // Delete subtask
+        app.delete_selected();
+
+        // Verify subtask was deleted
+        assert_eq!(app.tasks[0].subtasks.len(), initial_subtask_count - 1);
+
+        // Undo the action
+        app.undo().unwrap();
+
+        // Verify subtask was restored
+        assert_eq!(app.tasks[0].subtasks.len(), initial_subtask_count);
+        assert_eq!(app.tasks[0].subtasks[0].title, subtask_title);
+    }
+
+    #[test]
+    fn test_undo_archive() {
+        let mut app = create_test_app();
+        let initial_task_count = app.tasks.len();
+        let task_title = app.tasks[0].title.clone();
+
+        // Archive first task
+        app.archive_selected().unwrap();
+
+        // Verify task was archived
+        assert_eq!(app.tasks.len(), initial_task_count - 1);
+        assert_eq!(app.archived_today.len(), 1);
+        assert_eq!(app.archived_today[0].title, task_title);
+
+        // Verify undo stack has an entry
+        assert_eq!(app.undo_stack.len(), 1);
+
+        // Undo the action
+        app.undo().unwrap();
+
+        // Verify task was restored to active tasks
+        assert_eq!(app.tasks.len(), initial_task_count);
+        assert_eq!(app.archived_today.len(), 0);
+        assert_eq!(app.tasks[0].title, task_title);
+
+        // Verify undo stack is empty
+        assert_eq!(app.undo_stack.len(), 0);
+    }
+
+    #[test]
+    fn test_undo_archive_subtask() {
+        let mut app = create_test_app();
+        app.add_subtask("Test subtask".to_string(), Duration::minutes(30));
+
+        let initial_subtask_count = app.tasks[0].subtasks.len();
+        let subtask_title = app.tasks[0].subtasks[0].title.clone();
+
+        // Select the subtask (move down once)
+        app.move_selection_down();
+
+        // Archive subtask
+        app.archive_selected().unwrap();
+
+        // Verify subtask was archived
+        assert_eq!(app.tasks[0].subtasks.len(), initial_subtask_count - 1);
+        assert_eq!(app.archived_today.len(), 1);
+        assert_eq!(app.archived_today[0].title, subtask_title);
+
+        // Undo the action
+        app.undo().unwrap();
+
+        // Verify subtask was restored
+        assert_eq!(app.tasks[0].subtasks.len(), initial_subtask_count);
+        assert_eq!(app.archived_today.len(), 0);
+        assert_eq!(app.tasks[0].subtasks[0].title, subtask_title);
+    }
+
+    #[test]
+    fn test_undo_mixed_actions() {
+        let mut app = create_test_app();
+        app.add_task("Task 3".to_string(), Duration::hours(1));
+
+        // Archive first task
+        app.archive_selected().unwrap();
+        assert_eq!(app.tasks.len(), 2);
+        assert_eq!(app.archived_today.len(), 1);
+
+        // Mark second task (now first) as done
+        app.mark_done().unwrap();
+        assert_eq!(app.tasks.len(), 1);
+        assert_eq!(app.done_today.len(), 1);
+
+        // Delete remaining task
+        app.delete_selected();
+        assert_eq!(app.tasks.len(), 0);
+
+        // Undo delete
+        app.undo().unwrap();
+        assert_eq!(app.tasks.len(), 1);
+
+        // Undo mark done
+        app.undo().unwrap();
+        assert_eq!(app.tasks.len(), 2);
+        assert_eq!(app.done_today.len(), 0);
+
+        // Undo archive
+        app.undo().unwrap();
+        assert_eq!(app.tasks.len(), 3);
+        assert_eq!(app.archived_today.len(), 0);
     }
 }

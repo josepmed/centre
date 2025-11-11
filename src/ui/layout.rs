@@ -7,6 +7,7 @@ pub struct MainLayout {
     pub garden_area: Rect,
     pub journal_area: Rect,
     pub done_area: Option<Rect>,
+    pub animation_area: Option<Rect>,
     pub keybindings_area: Rect,
 }
 
@@ -49,6 +50,15 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
             ])
             .split(vertical_split[0]);
 
+        // Split done pane row horizontally: done on left (80%), animation on right (20%)
+        let done_horizontal = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(80), // Done pane
+                Constraint::Percentage(20), // Animation pane
+            ])
+            .split(vertical_split[1]);
+
         // Split bottom section horizontally: garden on left, journal on right
         let bottom_horizontal = Layout::default()
             .direction(Direction::Horizontal)
@@ -61,7 +71,8 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
         MainLayout {
             list_area: top_horizontal[0],
             details_area: top_horizontal[1],
-            done_area: Some(vertical_split[1]),
+            done_area: Some(done_horizontal[0]),
+            animation_area: Some(done_horizontal[1]),
             garden_area: bottom_horizontal[0],
             journal_area: bottom_horizontal[1],
             keybindings_area,
@@ -98,6 +109,7 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
             list_area: horizontal_split[0],
             details_area: horizontal_split[1],
             done_area: None,
+            animation_area: None,
             garden_area: bottom_horizontal[0],
             journal_area: bottom_horizontal[1],
             keybindings_area,

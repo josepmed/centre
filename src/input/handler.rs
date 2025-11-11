@@ -377,22 +377,26 @@ fn handle_mode_selector_mode(app: &mut AppState, key: KeyEvent) -> Result<bool> 
             Ok(false)
         }
         KeyCode::Char('2') => {
-            app.set_global_mode(GlobalMode::Lunch);
+            app.set_global_mode(GlobalMode::Break);
             Ok(false)
         }
         KeyCode::Char('3') => {
-            app.set_global_mode(GlobalMode::Gym);
+            app.set_global_mode(GlobalMode::Lunch);
             Ok(false)
         }
         KeyCode::Char('4') => {
-            app.set_global_mode(GlobalMode::Dinner);
+            app.set_global_mode(GlobalMode::Gym);
             Ok(false)
         }
         KeyCode::Char('5') => {
-            app.set_global_mode(GlobalMode::Personal);
+            app.set_global_mode(GlobalMode::Dinner);
             Ok(false)
         }
         KeyCode::Char('6') => {
+            app.set_global_mode(GlobalMode::Personal);
+            Ok(false)
+        }
+        KeyCode::Char('7') => {
             app.set_global_mode(GlobalMode::Sleep);
             Ok(false)
         }

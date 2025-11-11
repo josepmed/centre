@@ -175,7 +175,7 @@ pub fn render_mode_selector(f: &mut Frame, app: &AppState, area: Rect) {
 
         // Mode options with keys
         let modes = GlobalMode::all();
-        let keys = ['1', '2', '3', '4', '5', '6'];
+        let keys = ['1', '2', '3', '4', '5', '6', '7'];
 
         for (idx, mode) in modes.iter().enumerate() {
             let key = keys[idx];
