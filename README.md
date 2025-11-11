@@ -20,7 +20,9 @@ Centre supports both global task tracking (`~/.centre/`) and local project-speci
 - **Daily file system**: Each day gets its own file (YYYY-MM-DD.md) with ACTIVE, DONE, and ARCHIVED sections
 - **Automatic migration**: Tasks automatically carry forward to new days
 - **Daily reports**: Comprehensive statistics reports with context mode breakdowns generated automatically at day transitions
-- **Done tasks view**: Toggle view of completed tasks from today (press `c`)
+- **Done tasks view**: Toggle view of completed tasks from today with hierarchical subtask display (press `c`)
+- **Scrollable done view**: Scroll through large done task lists with `[` / `]` keys
+- **Undo functionality**: Undo recent actions (done, archive, delete) with `u` key (up to 10 actions)
 - **Task reordering**: Use Shift+↑/↓ to reorganize tasks and subtasks
 - **Archive system**: Archive tasks you want to keep but not show in active list
 - **Journal**: Built-in daily journal with cursor support and word navigation
@@ -145,11 +147,14 @@ This creates a `.centre/` directory in your current location for project-specifi
 - `Shift+↑` / `Shift+↓` - Reorder task/subtask (move up/down in list)
 - `Space` - Collapse/expand subtasks
 - `c` - Toggle done tasks view (show/hide completed tasks from today)
+- `[` / `]` - Scroll done tasks view up/down (when done view is visible)
+- `{` / `}` - Fast scroll done tasks view (5 lines at a time)
 
 ### Task Management
 - `Enter` - Toggle run/pause for selected task (only works in Working mode)
 - `+` / `-` - Increase/decrease estimate (default: 15 min increments)
 - `d` - Mark task as done
+- `u` - Undo last action (done, archive, or delete)
 - `p` - Postpone task to tomorrow
 - `r` - Archive task/subtask (removes from view, saves to archive.md)
 - `x` / `Delete` - Archive selected task or subtask
@@ -465,6 +470,9 @@ Run `centre` to see which directory is active (shown at startup). Use `centre in
 - ✅ ETAs with time-of-day phases
 - ✅ Archive system
 - ✅ Local and global directory modes
+- ✅ Undo functionality for done, archive, and delete actions (up to 10 actions)
+- ✅ Scrollable done tasks view with hierarchical subtask display
+- ✅ Enhanced keybindings hint bar showing all available commands
 
 ### v1.1 (Planned)
 - [ ] Config file support (`config.toml`)
