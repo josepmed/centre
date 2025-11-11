@@ -29,21 +29,33 @@ Centre supports both global task tracking (`~/.centre/`) and local project-speci
 
 ## Installation
 
-### Prerequisites
+### Homebrew (Recommended for macOS)
 
-- Rust toolchain (1.70 or newer)
-- A terminal that supports UTF-8 and emojis
+```bash
+brew tap josepmed/centre
+brew install centre
+```
+
+### Update
+
+```bash
+brew upgrade centre
+```
 
 ### Build from source
 
+**Prerequisites:**
+- Rust toolchain (1.70 or newer)
+- A terminal that supports UTF-8 and emojis
+
+**Build:**
 ```bash
 cargo build --release
 ```
 
 The binary will be available at `target/release/centre`.
 
-### Install
-
+**Install:**
 ```bash
 cargo install --path .
 ```
