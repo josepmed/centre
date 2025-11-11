@@ -10,17 +10,8 @@ env:
 
 jobs:
   build:
-    name: Build for ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-13
-            target: x86_64-apple-darwin
-            arch: x86_64
-          - os: macos-14
-            target: aarch64-apple-darwin
-            arch: arm64
+    name: Build for Apple Silicon
+    runs-on: macos-14
 
     steps:
       - name: Checkout code
@@ -29,18 +20,18 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-apple-darwin
 
       - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target aarch64-apple-darwin
 
       - name: Create tarball
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          ARCHIVE="centre-${VERSION}-${{ matrix.arch }}-apple-darwin.tar.gz"
+          ARCHIVE="centre-${VERSION}-arm64-apple-darwin.tar.gz"
 
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/centre dist/
+          cp target/aarch64-apple-darwin/release/centre dist/
 
           tar -czf "${ARCHIVE}" -C dist centre
 
@@ -52,7 +43,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: centre-${{ matrix.arch }}
+          name: centre-arm64
           path: |
             centre-*.tar.gz
             centre-*.tar.gz.sha256
