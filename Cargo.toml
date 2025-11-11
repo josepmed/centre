@@ -1,0 +1,40 @@
+[package]
+name = "centre"
+version = "1.0.0"
+edition = "2021"
+authors = ["Jose Medrano"]
+description = "A calm, terminal-based daily focus manager with time tracking"
+license = "MIT"
+
+[dependencies]
+# TUI framework
+ratatui = "0.26"
+crossterm = "0.27"
+
+# Time handling
+chrono = "0.4"
+
+# UUID for internal IDs
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# File I/O utilities
+tempfile = "3.8"
+dirs = "5.0"
+
+# CLI argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+[[bin]]
+name = "centre"
+path = "src/main.rs"
