@@ -97,3 +97,17 @@ pub fn done_style() -> Style {
 pub fn tag_style() -> Style {
     Style::default().fg(Color::Blue)
 }
+
+/// Running status style when row is selected (better contrast)
+pub fn running_style_selected() -> Style {
+    Style::default()
+        .fg(Color::Red)
+        .add_modifier(Modifier::BOLD)
+}
+
+/// Tag style when row is selected (better contrast)
+pub fn tag_style_selected() -> Style {
+    Style::default()
+        .fg(Color::Black)
+        .add_modifier(Modifier::BOLD)
+}

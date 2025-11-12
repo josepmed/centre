@@ -3,6 +3,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 /// Main layout structure
 pub struct MainLayout {
     pub list_area: Rect,
+    pub planner_area: Option<Rect>,
     pub details_area: Rect,
     pub garden_area: Rect,
     pub journal_area: Rect,
@@ -14,10 +15,10 @@ pub struct MainLayout {
 /// Create the main layout
 /// - Top bar: keybindings (1 row)
 /// - Main area: Split horizontally
-///   - Left: Today's focus list (80% width)
-///   - Right: Details pane (20% width)
+///   - When planner shown: List (70%) | Planner (30%)
+///   - When planner hidden: List (70%) | Details (30%)
 /// - Bottom area: Done pane (if showing) above Garden pane
-pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
+pub fn create_layout(area: Rect, show_done: bool, show_planner: bool) -> MainLayout {
     // Split into top bar and main content
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -41,14 +42,30 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
             ])
             .split(content_area);
 
-        // Split top section horizontally: list on left, details on right
-        let top_horizontal = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(80), // List pane
-                Constraint::Percentage(20), // Details pane
-            ])
-            .split(vertical_split[0]);
+        // Split top section horizontally: list on left, planner on right (when shown), or list + details (when planner hidden)
+        let (list_area, details_area, planner_area) = if show_planner {
+            // When planner is shown: List (70%) | Planner (30%), no details
+            let top_horizontal = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(70), // List pane
+                    Constraint::Percentage(30), // Planner pane
+                ])
+                .split(vertical_split[0]);
+            // Create a zero-sized rect for details (hidden)
+            let hidden_details = ratatui::layout::Rect::new(0, 0, 0, 0);
+            (top_horizontal[0], hidden_details, Some(top_horizontal[1]))
+        } else {
+            // When planner is hidden: List (70%) | Details (30%)
+            let top_horizontal = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(70), // List pane
+                    Constraint::Percentage(30), // Details pane
+                ])
+                .split(vertical_split[0]);
+            (top_horizontal[0], top_horizontal[1], None)
+        };
 
         // Split done pane row horizontally: done on left (80%), animation on right (20%)
         let done_horizontal = Layout::default()
@@ -69,8 +86,9 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
             .split(vertical_split[2]);
 
         MainLayout {
-            list_area: top_horizontal[0],
-            details_area: top_horizontal[1],
+            list_area,
+            planner_area,
+            details_area,
             done_area: Some(done_horizontal[0]),
             animation_area: Some(done_horizontal[1]),
             garden_area: bottom_horizontal[0],
@@ -87,14 +105,30 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
             ])
             .split(content_area);
 
-        // Split top section horizontally: list on left, details on right
-        let horizontal_split = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(80), // List pane
-                Constraint::Percentage(20), // Details pane
-            ])
-            .split(vertical_split[0]);
+        // Split top section horizontally: list on left, planner on right (when shown), or list + details (when planner hidden)
+        let (list_area, details_area, planner_area) = if show_planner {
+            // When planner is shown: List (70%) | Planner (30%), no details
+            let horizontal_split = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(70), // List pane
+                    Constraint::Percentage(30), // Planner pane
+                ])
+                .split(vertical_split[0]);
+            // Create a zero-sized rect for details (hidden)
+            let hidden_details = ratatui::layout::Rect::new(0, 0, 0, 0);
+            (horizontal_split[0], hidden_details, Some(horizontal_split[1]))
+        } else {
+            // When planner is hidden: List (70%) | Details (30%)
+            let horizontal_split = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(70), // List pane
+                    Constraint::Percentage(30), // Details pane
+                ])
+                .split(vertical_split[0]);
+            (horizontal_split[0], horizontal_split[1], None)
+        };
 
         // Split bottom section horizontally: garden on left, journal on right
         let bottom_horizontal = Layout::default()
@@ -106,8 +140,9 @@ pub fn create_layout(area: Rect, show_done: bool) -> MainLayout {
             .split(vertical_split[1]);
 
         MainLayout {
-            list_area: horizontal_split[0],
-            details_area: horizontal_split[1],
+            list_area,
+            planner_area,
+            details_area,
             done_area: None,
             animation_area: None,
             garden_area: bottom_horizontal[0],
@@ -147,18 +182,23 @@ mod tests {
     #[test]
     fn test_create_layout() {
         let area = Rect::new(0, 0, 100, 50);
-        let layout = create_layout(area, false);
+        let layout = create_layout(area, false, true);
 
         assert!(layout.list_area.height > 0);
         assert!(layout.details_area.height > 0);
         assert!(layout.garden_area.height > 0);
         assert!(layout.journal_area.height > 0);
         assert!(layout.done_area.is_none());
+        assert!(layout.planner_area.is_some());
         assert_eq!(layout.keybindings_area.height, 1);
 
-        let layout_with_done = create_layout(area, true);
+        let layout_with_done = create_layout(area, true, true);
         assert!(layout_with_done.done_area.is_some());
+        assert!(layout_with_done.planner_area.is_some());
         assert!(layout_with_done.journal_area.height > 0);
+
+        let layout_no_planner = create_layout(area, false, false);
+        assert!(layout_no_planner.planner_area.is_none());
     }
 
     #[test]

@@ -20,11 +20,19 @@ pub fn render_input_form(f: &mut Frame, app: &AppState, area: Rect) {
 
         let mut lines = Vec::new();
 
-        // Title
-        let title_text = if form.is_subtask {
-            " Add Subtask "
+        // Title - show "Edit" if editing an existing item
+        let title_text = if form.editing_item_id.is_some() {
+            if form.is_subtask {
+                " Edit Subtask "
+            } else {
+                " Edit Task "
+            }
         } else {
-            " Add Task "
+            if form.is_subtask {
+                " Add Subtask "
+            } else {
+                " Add Task "
+            }
         };
 
         // Title field
@@ -91,11 +99,15 @@ pub fn render_input_form(f: &mut Frame, app: &AppState, area: Rect) {
         // Instructions
         lines.push(Line::raw("Tab to switch fields  ·  Enter to submit  ·  Esc to cancel"));
         lines.push(Line::raw(""));
-        lines.push(Line::from(vec![
-            Span::raw("(Default estimate: "),
-            Span::styled("1h", modal_title_style()),
-            Span::raw(")"),
-        ]));
+
+        // Only show default estimate when adding new items
+        if form.editing_item_id.is_none() {
+            lines.push(Line::from(vec![
+                Span::raw("(Default estimate: "),
+                Span::styled("1h", modal_title_style()),
+                Span::raw(")"),
+            ]));
+        }
 
         let paragraph = Paragraph::new(lines)
             .block(

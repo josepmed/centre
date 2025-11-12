@@ -2,7 +2,7 @@ use crate::app::AppState;
 use crate::domain::{flatten_tasks, plant_glyph, status_badge, tree_connector, Item, RunStatus, TimeTracking};
 use crate::ui::styles::{
     border_style, default_style, idle_style, over_estimate_style, paused_style, running_style,
-    selected_style, title_style, tree_style, tag_style,
+    running_style_selected, selected_style, tag_style, tag_style_selected, title_style, tree_style,
 };
 use chrono::{DateTime, Local, Timelike};
 use ratatui::{
@@ -39,44 +39,32 @@ fn calculate_etas(tasks: &[Item]) -> HashMap<Uuid, DateTime<Local>> {
         // Calculate remaining time for task
         let remaining = task.track.estimate - task.track.elapsed;
 
-        if task.status == RunStatus::Running {
-            // If running, ETA is now + remaining
-            let eta = snap_to_5min(now + remaining);
-            etas.insert(task.id, eta);
-        } else {
-            // If idle/paused, accumulate previous times
-            let eta = snap_to_5min(now + accumulated_time + remaining);
-            etas.insert(task.id, eta);
-        }
-
-        // Process subtasks
+        // Process subtasks if they exist
         if !task.subtasks.is_empty() {
-            let mut subtask_accumulated = chrono::Duration::zero();
-
+            // For tasks with subtasks, first subtask starts at accumulated_time
+            // and each subsequent subtask starts after the previous one
             for subtask in &task.subtasks {
                 let subtask_remaining = subtask.track.estimate - subtask.track.elapsed;
 
-                if subtask.status == RunStatus::Running {
-                    // Subtask running: ETA is now + remaining
-                    let eta = snap_to_5min(now + subtask_remaining);
-                    etas.insert(subtask.id, eta);
-                } else {
-                    // Subtask idle/paused: accumulate within task
-                    let eta = snap_to_5min(now + subtask_accumulated + subtask_remaining);
-                    etas.insert(subtask.id, eta);
-                }
+                // Each subtask ETA is based on accumulated time so far
+                let eta = snap_to_5min(now + accumulated_time + subtask_remaining);
+                etas.insert(subtask.id, eta);
 
-                // Add to subtask accumulation
-                subtask_accumulated = subtask_accumulated + subtask_remaining;
+                // Add this subtask's remaining time to accumulated time
+                accumulated_time = accumulated_time + subtask_remaining;
             }
 
-            // Use subtask total for parent accumulation
-            accumulated_time = accumulated_time + subtask_accumulated;
+            // Parent task ETA is when the last subtask finishes
+            // (accumulated_time already includes all subtasks)
+            let parent_eta = snap_to_5min(now + accumulated_time);
+            etas.insert(task.id, parent_eta);
         } else {
-            // No subtasks, accumulate task time
-            if task.status != RunStatus::Running {
-                accumulated_time = accumulated_time + remaining;
-            }
+            // No subtasks: task ETA is accumulated time + remaining
+            let eta = snap_to_5min(now + accumulated_time + remaining);
+            etas.insert(task.id, eta);
+
+            // Add this task's remaining time to accumulated time
+            accumulated_time = accumulated_time + remaining;
         }
     }
 
@@ -134,8 +122,9 @@ pub fn render_list_pane(f: &mut Frame, app: &AppState, area: Rect) {
             };
 
             let eta = etas.get(&item.id).copied();
-            let line = create_task_line(item, row.depth, row.is_last, app.use_emoji, eta);
-            let style = if idx == app.selected_index {
+            let is_selected = idx == app.selected_index;
+            let line = create_task_line(item, row.depth, row.is_last, app.use_emoji, eta, is_selected);
+            let style = if is_selected {
                 selected_style()
             } else {
                 default_style()
@@ -160,7 +149,7 @@ pub fn render_list_pane(f: &mut Frame, app: &AppState, area: Rect) {
 
 /// Create a single line for a task/subtask
 /// Format: [🌿] Write proposal  ⏱ 1.3h / 2.0h (RUNNING) [TAGS]   ⇢ 🕒 12:45 🌞
-fn create_task_line(item: &Item, depth: usize, is_last: bool, use_emoji: bool, eta: Option<DateTime<Local>>) -> Line<'static> {
+fn create_task_line(item: &Item, depth: usize, is_last: bool, use_emoji: bool, eta: Option<DateTime<Local>>, is_selected: bool) -> Line<'static> {
     let mut spans = Vec::new();
 
     // Indentation and tree connector for subtasks
@@ -192,10 +181,25 @@ fn create_task_line(item: &Item, depth: usize, is_last: bool, use_emoji: bool, e
     );
     spans.push(Span::raw(time_str));
 
+    // Estimate mismatch indicator for parent tasks with subtasks
+    if !item.subtasks.is_empty() {
+        let parent_estimate = item.track.estimate;
+        let subtasks_total = item.subtask_total_estimate();
+        if parent_estimate != subtasks_total {
+            spans.push(Span::styled("≠ ".to_string(), over_estimate_style()));
+        }
+    }
+
     // Status badge
     let badge = status_badge(item);
     let badge_style = match item.status {
-        RunStatus::Running => running_style(),
+        RunStatus::Running => {
+            if is_selected {
+                running_style_selected()
+            } else {
+                running_style()
+            }
+        },
         RunStatus::Paused => paused_style(),
         _ => idle_style(),
     };
@@ -210,11 +214,16 @@ fn create_task_line(item: &Item, depth: usize, is_last: bool, use_emoji: bool, e
     // Tags (if any)
     if !item.tags.is_empty() {
         spans.push(Span::raw(" ".to_string()));
+        let tag_span_style = if is_selected {
+            tag_style_selected()
+        } else {
+            tag_style()
+        };
         for (i, tag) in item.tags.iter().enumerate() {
             if i > 0 {
                 spans.push(Span::raw(" ".to_string()));
             }
-            spans.push(Span::styled(format!("[{}]", tag), tag_style()));
+            spans.push(Span::styled(format!("[{}]", tag), tag_span_style));
         }
     }
 
@@ -234,7 +243,7 @@ mod tests {
             Duration::hours(2),
             ScheduleDay::Today,
         );
-        let line = create_task_line(&item, 0, false, true, None);
+        let line = create_task_line(&item, 0, false, true, None, false);
 
         // Check that line contains expected components
         let line_str = format!("{:?}", line);
@@ -248,7 +257,7 @@ mod tests {
             Duration::hours(1),
             ScheduleDay::Today,
         );
-        let line = create_task_line(&item, 1, true, true, None);
+        let line = create_task_line(&item, 1, true, true, None, false);
 
         // Subtask should have indentation
         let line_str = format!("{:?}", line);

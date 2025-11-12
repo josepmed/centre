@@ -12,7 +12,7 @@ pub struct ModalState {
     pub message: String,
 }
 
-/// Input form state for adding tasks
+/// Input form state for adding/editing tasks
 #[derive(Debug, Clone)]
 pub struct InputFormState {
     pub title: String,
@@ -20,6 +20,7 @@ pub struct InputFormState {
     pub tags: String, // Comma-separated tags
     pub is_subtask: bool,
     pub editing_field: usize, // 0 = title, 1 = notes, 2 = tags
+    pub editing_item_id: Option<uuid::Uuid>, // If Some, we're editing an existing item
 }
 
 /// Undo action for reverting recent changes
@@ -99,6 +100,12 @@ pub struct AppState {
 
     // Scroll offset for done pane
     pub done_scroll_offset: usize,
+
+    // Scroll offset for daily planner pane
+    pub planner_scroll_offset: usize,
+
+    // Toggle visibility of daily planner pane
+    pub show_planner: bool,
 }
 
 impl AppState {
@@ -210,6 +217,10 @@ impl AppState {
 
             // Initialize done scroll offset
             done_scroll_offset: 0,
+            planner_scroll_offset: 0,
+
+            // Initialize planner visibility (hidden by default)
+            show_planner: false,
         }
     }
 
@@ -262,6 +273,45 @@ impl AppState {
         if self.show_done {
             self.reset_done_scroll();
         }
+    }
+
+    /// Toggle showing daily planner
+    pub fn toggle_show_planner(&mut self) {
+        self.show_planner = !self.show_planner;
+
+        // When opening planner, scroll to 15 minutes before current time
+        if self.show_planner {
+            self.scroll_planner_to_current_time();
+        }
+    }
+
+    /// Scroll planner to show current time (15 minutes before now)
+    fn scroll_planner_to_current_time(&mut self) {
+        use chrono::{Local, Timelike};
+
+        const SLICE_MINUTES: i64 = 15;
+        const START_HOUR: u32 = 9;
+
+        let now = Local::now().time();
+        let current_hour = now.hour();
+        let current_minute = now.minute();
+
+        // Calculate minutes since start of day (9am)
+        let minutes_since_start = if current_hour >= START_HOUR {
+            ((current_hour - START_HOUR) * 60 + current_minute) as i64
+        } else {
+            0
+        };
+
+        // Find the slot index (rounded down to 15-minute intervals)
+        let current_slot = minutes_since_start / SLICE_MINUTES;
+
+        // Go back one slot (15 minutes) to show context
+        let target_slot = current_slot.saturating_sub(1);
+
+        // Each slot takes 1 line base + potentially more for stacked tasks
+        // For now, approximate as 1 line per slot
+        self.planner_scroll_offset = target_slot.max(0) as usize;
     }
 
     /// Get the currently selected item (returns task_index and optional subtask_index)
@@ -738,6 +788,7 @@ impl AppState {
             tags: String::new(),
             is_subtask: false,
             editing_field: 0,
+            editing_item_id: None,
         });
         self.ui_mode = UiMode::AddingTask;
     }
@@ -750,8 +801,35 @@ impl AppState {
             tags: String::new(),
             is_subtask: true,
             editing_field: 0,
+            editing_item_id: None,
         });
         self.ui_mode = UiMode::AddingSubtask;
+    }
+
+    /// Start editing the selected task/subtask (opens input form with existing data)
+    pub fn start_edit_task(&mut self) {
+        // Get selection info first (before borrowing mutably)
+        if let Some((_task_idx, subtask_idx)) = self.get_selected_item() {
+            let is_subtask = subtask_idx.is_some();
+
+            // Now get the item data for editing
+            if let Some(item) = self.get_selected_item_mut() {
+                let title = item.title.clone();
+                let notes = item.notes.clone();
+                let tags = item.tags.join(", ");
+                let item_id = item.id;
+
+                self.input_form = Some(InputFormState {
+                    title,
+                    notes,
+                    tags,
+                    is_subtask,
+                    editing_field: 0,
+                    editing_item_id: Some(item_id),
+                });
+                self.ui_mode = UiMode::EditingTask;
+            }
+        }
     }
 
     /// Toggle between editing fields in input form (title -> notes -> tags)
@@ -785,12 +863,10 @@ impl AppState {
         }
     }
 
-    /// Submit input form and create task/subtask
+    /// Submit input form and create/update task/subtask
     pub fn submit_input_form(&mut self) {
         if let Some(form) = self.input_form.take() {
             if !form.title.trim().is_empty() {
-                let estimate = Duration::hours(1); // Default 1 hour
-
                 // Parse tags from comma-separated string
                 let tags: Vec<String> = form.tags
                     .split(',')
@@ -798,20 +874,52 @@ impl AppState {
                     .filter(|s| !s.is_empty())
                     .collect();
 
-                if form.is_subtask {
-                    if let Some((task_idx, _)) = self.get_selected_item() {
-                        let mut subtask = Item::new(form.title, estimate, ScheduleDay::Today);
-                        subtask.notes = form.notes;
-                        subtask.tags = tags;
-                        self.tasks[task_idx].add_subtask(subtask);
+                if let Some(item_id) = form.editing_item_id {
+                    // Editing existing item - find it and update
+                    let mut found = false;
+                    for task in &mut self.tasks {
+                        if task.id == item_id {
+                            task.title = form.title.clone();
+                            task.notes = form.notes.clone();
+                            task.tags = tags.clone();
+                            found = true;
+                            break;
+                        }
+                        for subtask in &mut task.subtasks {
+                            if subtask.id == item_id {
+                                subtask.title = form.title.clone();
+                                subtask.notes = form.notes.clone();
+                                subtask.tags = tags.clone();
+                                found = true;
+                                break;
+                            }
+                        }
+                        if found {
+                            break;
+                        }
+                    }
+                    if found {
                         self.needs_save = true;
                     }
                 } else {
-                    let mut task = Item::new(form.title, estimate, ScheduleDay::Today);
-                    task.notes = form.notes;
-                    task.tags = tags;
-                    self.tasks.push(task);
-                    self.needs_save = true;
+                    // Creating new item
+                    let estimate = Duration::hours(1); // Default 1 hour
+
+                    if form.is_subtask {
+                        if let Some((task_idx, _)) = self.get_selected_item() {
+                            let mut subtask = Item::new(form.title, estimate, ScheduleDay::Today);
+                            subtask.notes = form.notes;
+                            subtask.tags = tags;
+                            self.tasks[task_idx].add_subtask(subtask);
+                            self.needs_save = true;
+                        }
+                    } else {
+                        let mut task = Item::new(form.title, estimate, ScheduleDay::Today);
+                        task.notes = form.notes;
+                        task.tags = tags;
+                        self.tasks.push(task);
+                        self.needs_save = true;
+                    }
                 }
             }
             self.ui_mode = UiMode::Normal;
@@ -1529,6 +1637,23 @@ impl AppState {
     /// Reset done scroll offset (when switching views or adding items)
     pub fn reset_done_scroll(&mut self) {
         self.done_scroll_offset = 0;
+    }
+
+    /// Scroll the planner pane up
+    pub fn scroll_planner_up(&mut self) {
+        if self.planner_scroll_offset > 0 {
+            self.planner_scroll_offset -= 1;
+        }
+    }
+
+    /// Scroll the planner pane down
+    pub fn scroll_planner_down(&mut self) {
+        self.planner_scroll_offset += 1;
+    }
+
+    /// Reset planner scroll offset
+    pub fn reset_planner_scroll(&mut self) {
+        self.planner_scroll_offset = 0;
     }
 }
 

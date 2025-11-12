@@ -1,4 +1,5 @@
 pub mod animation_pane;
+pub mod daily_planner_pane;
 pub mod details_pane;
 pub mod done_pane;
 pub mod garden_pane;
@@ -13,6 +14,7 @@ pub mod styles;
 use crate::app::AppState;
 use crate::domain::UiMode;
 use animation_pane::render_animation_pane;
+use daily_planner_pane::render_daily_planner_pane;
 use details_pane::render_details_pane;
 use done_pane::render_done_pane;
 use garden_pane::render_garden_pane;
@@ -27,13 +29,16 @@ use ratatui::Frame;
 /// Main render function - draws the entire UI
 pub fn render(f: &mut Frame, app: &mut AppState) {
     let size = f.size();
-    let layout = create_layout(size, app.show_done);
+    let layout = create_layout(size, app.show_done, app.show_planner);
 
     // Render keybindings bar
     render_keybindings(f, layout.keybindings_area);
 
     // Render panes
     render_list_pane(f, app, layout.list_area);
+    if let Some(planner_area) = layout.planner_area {
+        render_daily_planner_pane(f, app, planner_area);
+    }
     render_details_pane(f, app, layout.details_area);
     render_garden_pane(f, app, layout.garden_area);
     render_journal_pane(f, app, layout.journal_area);

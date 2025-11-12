@@ -13,7 +13,7 @@ pub fn handle_key(app: &mut AppState, key: KeyEvent) -> Result<bool> {
     match app.ui_mode {
         UiMode::Normal => handle_normal_mode(app, key),
         UiMode::Modal => handle_modal_mode(app, key),
-        UiMode::AddingTask | UiMode::AddingSubtask => handle_input_form_mode(app, key),
+        UiMode::AddingTask | UiMode::AddingSubtask | UiMode::EditingTask => handle_input_form_mode(app, key),
         UiMode::IdleCheck => handle_idle_check_mode(app, key),
         UiMode::EditingJournal => handle_journal_editing_mode(app, key),
         UiMode::ModeSelector => handle_mode_selector_mode(app, key),
@@ -74,6 +74,31 @@ fn handle_normal_mode(app: &mut AppState, key: KeyEvent) -> Result<bool> {
             Ok(false)
         }
 
+        // Scroll planner pane using < and >
+        KeyCode::Char('<') => {
+            app.scroll_planner_up();
+            Ok(false)
+        }
+        KeyCode::Char('>') => {
+            app.scroll_planner_down();
+            Ok(false)
+        }
+        // Scroll planner pane fast using , (comma) and . (period)
+        KeyCode::Char(',') => {
+            // Scroll up by 5 lines
+            for _ in 0..5 {
+                app.scroll_planner_up();
+            }
+            Ok(false)
+        }
+        KeyCode::Char('.') => {
+            // Scroll down by 5 lines
+            for _ in 0..5 {
+                app.scroll_planner_down();
+            }
+            Ok(false)
+        }
+
         // Toggle run/pause
         KeyCode::Enter => {
             app.toggle_run_pause();
@@ -120,9 +145,9 @@ fn handle_normal_mode(app: &mut AppState, key: KeyEvent) -> Result<bool> {
             Ok(false)
         }
 
-        // Edit notes (spawn external editor)
-        KeyCode::Char('n') | KeyCode::Char('N') => {
-            edit_notes_external(app)?;
+        // Edit task/subtask (open form with existing data)
+        KeyCode::Char('e') | KeyCode::Char('E') => {
+            app.start_edit_task();
             Ok(false)
         }
 
@@ -147,6 +172,12 @@ fn handle_normal_mode(app: &mut AppState, key: KeyEvent) -> Result<bool> {
         // Toggle done tasks view
         KeyCode::Char('c') | KeyCode::Char('C') => {
             app.toggle_show_done();
+            Ok(false)
+        }
+
+        // Toggle daily planner view
+        KeyCode::Char('l') | KeyCode::Char('L') => {
+            app.toggle_show_planner();
             Ok(false)
         }
 

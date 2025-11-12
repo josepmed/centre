@@ -56,6 +56,7 @@ pub enum UiMode {
     Modal,
     AddingTask,
     AddingSubtask,
+    EditingTask, // Editing an existing task/subtask
     IdleCheck,
     EditingJournal,
     DayChanged, // Shown when midnight has passed, forces restart
