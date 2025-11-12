@@ -1,6 +1,6 @@
 [package]
 name = "centre"
-version = "1.1.2"
+version = "1.1.3"
 edition = "2021"
 authors = ["Jose Medrano"]
 description = "A calm, terminal-based daily focus manager with time tracking"

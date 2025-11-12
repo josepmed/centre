@@ -132,6 +132,16 @@ impl AppState {
             metadata.mode_time_dinner_secs = 0;
             metadata.mode_time_personal_secs = 0;
             metadata.mode_time_sleep_secs = 0;
+            // Clear paused task IDs since UUIDs are regenerated for new day
+            metadata.paused_by_mode_task_ids.clear();
+            // Update timestamp to current time
+            metadata.last_mode_change_timestamp = Some(chrono::Local::now().to_rfc3339());
+
+            // Save the reset metadata immediately
+            use crate::persistence::{save_metadata, meta_file};
+            if let Ok(meta_path) = meta_file() {
+                let _ = save_metadata(meta_path, &metadata);
+            }
         }
 
         // Convert paused task IDs from strings to UUIDs
@@ -598,7 +608,7 @@ impl AppState {
             let tomorrow_date = chrono::Local::now().date_naive() + chrono::Duration::days(1);
             let tomorrow_path = daily_file(tomorrow_date)?;
 
-            let (mut tomorrow_active, tomorrow_done, tomorrow_archived) = if tomorrow_path.exists() {
+            let (mut tomorrow_active, _tomorrow_done, _tomorrow_archived) = if tomorrow_path.exists() {
                 let content = std::fs::read_to_string(&tomorrow_path)?;
                 parse_daily_file(&content)?
             } else {
@@ -608,8 +618,8 @@ impl AppState {
             // Add the postponed item to tomorrow's active tasks
             tomorrow_active.push(item);
 
-            // Save tomorrow's file
-            let tomorrow_content = serialize_daily_file(&tomorrow_active, &tomorrow_done, &tomorrow_archived);
+            // Save tomorrow's file with only active tasks (done/archived stay in their original day)
+            let tomorrow_content = serialize_daily_file(&tomorrow_active, &Vec::new(), &Vec::new());
             atomic_write(&tomorrow_path, &tomorrow_content)?;
 
             // Adjust selection if needed
