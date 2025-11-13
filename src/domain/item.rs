@@ -233,15 +233,16 @@ impl Item {
         self.state_history.push(StateEvent::new(Some(prev_status), RunStatus::Done));
     }
 
-    /// Mark for postponement to tomorrow
+    /// Postpone to tomorrow - pauses if running and sets to Idle
     pub fn postpone(&mut self) {
         if self.status == RunStatus::Running {
             self.track.pause();
         }
-        let prev_status = self.status;
-        self.status = RunStatus::Postponed;
-        self.schedule = ScheduleDay::Tomorrow;
-        self.state_history.push(StateEvent::new(Some(prev_status), RunStatus::Postponed));
+        if self.status != RunStatus::Idle {
+            let prev_status = self.status;
+            self.status = RunStatus::Idle;
+            self.state_history.push(StateEvent::new(Some(prev_status), RunStatus::Idle));
+        }
     }
 
     /// Update elapsed time if running (called on tick)
@@ -532,9 +533,8 @@ mod tests {
         let mut item = Item::new("Test".to_string(), Duration::hours(1), ScheduleDay::Today);
         item.start();
         item.postpone();
-        assert_eq!(item.status, RunStatus::Postponed);
-        assert_eq!(item.schedule, ScheduleDay::Tomorrow);
-        assert!(item.track.started_at.is_none());
+        assert_eq!(item.status, RunStatus::Idle); // Postpone sets to Idle
+        assert!(item.track.started_at.is_none()); // Pauses the timer
     }
 
     #[test]

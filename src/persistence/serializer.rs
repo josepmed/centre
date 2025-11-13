@@ -7,11 +7,20 @@ pub fn serialize_daily_file(
     done_items: &[Item],
     archived_items: &[Item],
 ) -> String {
+    serialize_daily_file_with_date(active_items, done_items, archived_items, Local::now().date_naive())
+}
+
+/// Serialize active, done, and archived items into daily file format with a specific date
+pub fn serialize_daily_file_with_date(
+    active_items: &[Item],
+    done_items: &[Item],
+    archived_items: &[Item],
+    date: chrono::NaiveDate,
+) -> String {
     let mut output = String::new();
 
     // Add main header with date
-    let date = Local::now().format("%Y-%m-%d");
-    output.push_str(&format!("# {}\n\n", date));
+    output.push_str(&format!("# {}\n\n", date.format("%Y-%m-%d")));
 
     // ACTIVE section
     output.push_str("## ACTIVE\n\n");

@@ -119,10 +119,16 @@ pub fn archive_file() -> Result<PathBuf> {
     Ok(ensure_centre_dir()?.join("archive.md"))
 }
 
+/// Get path to journal file for a specific date
+pub fn journal_file_for_date(date: chrono::NaiveDate) -> Result<PathBuf> {
+    let date_str = date.format("%Y-%m-%d").to_string();
+    Ok(ensure_centre_dir()?.join(format!("journal-{}.md", date_str)))
+}
+
 /// Get path to journal file for today
 pub fn journal_file() -> Result<PathBuf> {
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    Ok(ensure_centre_dir()?.join(format!("journal-{}.md", today)))
+    let today = chrono::Local::now().date_naive();
+    journal_file_for_date(today)
 }
 
 /// Get path to meta.json file (stores global mode and other app metadata)

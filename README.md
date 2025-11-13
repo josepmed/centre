@@ -9,7 +9,9 @@ Centre supports both global task tracking (`~/.centre/`) and local project-speci
 ## Features
 
 - **Context mode switching**: Track your daily rhythm across 7 modes (💼 Working, ☁️ Break, 🍽 Lunch, 🏋️ Gym, 🍲 Dinner, 🏡 Personal, 🌙 Sleep)
-- **Dynamic TUI layout**: Today's Centre List, Details Pane, Focus Garden, and optional Done Tasks view
+- **Dynamic TUI layout**: Today's Centre List, Details Pane, Focus Garden, optional Done Tasks view, and Daily Planner
+- **Daily planner**: Visual timeline showing scheduled tasks from 9am-midnight with 15-minute time slots (press `l`)
+- **Planner scrolling**: Navigate through your day's schedule with `<` / `>` keys (fast scroll with `{` / `}`)
 - **Hierarchical tasks**: Support for tasks with nested subtasks (one level deep)
 - **Smart estimates**: Shows subtask-based estimates alongside task estimates when they differ
 - **Real-time tracking**: Independent timers for tasks and subtasks with parallel running support
@@ -147,8 +149,10 @@ This creates a `.centre/` directory in your current location for project-specifi
 - `Shift+↑` / `Shift+↓` - Reorder task/subtask (move up/down in list)
 - `Space` - Collapse/expand subtasks
 - `c` - Toggle done tasks view (show/hide completed tasks from today)
+- `l` - Toggle daily planner view (show/hide scheduled timeline)
 - `[` / `]` - Scroll done tasks view up/down (when done view is visible)
-- `{` / `}` - Fast scroll done tasks view (5 lines at a time)
+- `<` / `>` - Scroll daily planner up/down (when planner view is visible)
+- `{` / `}` - Fast scroll (5 lines at a time) for done tasks or daily planner
 
 ### Task Management
 - `Enter` - Toggle run/pause for selected task (only works in Working mode)
@@ -248,6 +252,67 @@ When in non-working modes, the Focus Garden displays contextual encouragement:
 - 🏡 Personal: "Tending your own garden"
 - 🌙 Sleep: "Rest — tomorrow's seeds await"
 
+## Daily Planner
+
+The Daily Planner provides a visual timeline of your scheduled tasks throughout the day, helping you see your day at a glance and stay on track with your planned work.
+
+### How It Works
+
+Press `l` to toggle the Daily Planner view. The planner displays a vertical timeline from 9am to midnight, showing:
+
+- **15-minute time slots** - Each row represents a 15-minute interval
+- **Scheduled tasks** - Tasks are laid out sequentially based on their estimates and ETAs
+- **Current time indicator** - Highlighted time slot showing where you are in the day
+- **Task status visualization** - Color-coded blocks showing RUNNING (bright), PAUSED (dim), or IDLE (normal) status
+- **Multiple tasks** - When tasks overlap in time, they appear side-by-side in the same slot
+
+### Features
+
+**Visual Timeline**
+- Starts at 9:00 AM and extends to midnight (24:00)
+- Each task appears as a block spanning its scheduled duration
+- Task titles are shown left-aligned in their time slots
+- Current time slot is highlighted in yellow/bold for easy reference
+
+**Scrolling**
+- `<` / `>` - Scroll up/down through the timeline one slot at a time
+- `{` / `}` - Fast scroll (5 slots at a time) for quick navigation
+- When opening the planner, it automatically scrolls to 15 minutes before current time
+
+**Task Selection Sync**
+- Selecting a task in the main list highlights it in the planner
+- The planner shows which tasks are scheduled and when
+
+**Status Indicators**
+- Tasks display with appropriate styling based on their current state
+- RUNNING tasks appear brighter to stand out
+- PAUSED and IDLE tasks use subdued colors
+
+### Use Cases
+
+- **Morning planning**: See how your day will unfold based on task estimates
+- **Progress tracking**: Monitor where you are versus where you planned to be
+- **Schedule awareness**: Understand when tasks will complete based on current time
+- **Overlap detection**: See when multiple tasks are scheduled simultaneously
+- **Time management**: Visualize if you have too much or too little scheduled
+
+### Example View
+
+```
+Daily Planner 🕒
+09:00 │                                │
+09:15 │ Write proposal                 │
+09:30 │ Write proposal                 │
+09:45 │ Write proposal                 │
+10:00 │────────────── now ─────────────│
+10:15 │ Refactor TUI                   │
+10:30 │ Refactor TUI                   │
+10:45 │ Refactor TUI                   │
+11:00 │                                │
+```
+
+The planner provides a complementary view to your task list, helping you understand the temporal dimension of your work and maintain awareness of your daily rhythm.
+
 ## File Format
 
 Centre uses plain Markdown files that you can edit directly.
@@ -337,25 +402,27 @@ Comprehensive daily statistics in Markdown format (see CLI Commands section for 
 3. A report for the previous day is automatically generated
 4. Add or adjust tasks for the day
 5. Use the journal (`j` key) to note your intentions or plan
-6. Start your first task with `Enter`
+6. Toggle the daily planner (`l` key) to visualize your day's schedule
+7. Start your first task with `Enter`
 
 ### During the day
-7. Switch context modes with `m` as your day flows (Working → Lunch → Gym → Working)
-8. Tasks automatically pause when leaving Working mode, resume when you return
-9. When an estimate is reached, choose what to do next (Done, Extend, Pause, or Postpone)
-10. Run multiple tasks in parallel if needed (tasks and subtasks track independently)
-11. Add notes to track context with `n`
-12. Update journal throughout the day to capture insights
-13. Monitor your Focus Garden to see overall progress and mode time breakdown
+8. Switch context modes with `m` as your day flows (Working → Lunch → Gym → Working)
+9. Tasks automatically pause when leaving Working mode, resume when you return
+10. When an estimate is reached, choose what to do next (Done, Extend, Pause, or Postpone)
+11. Run multiple tasks in parallel if needed (tasks and subtasks track independently)
+12. Add notes to track context with `n`
+13. Update journal throughout the day to capture insights
+14. Check the daily planner (`l`) to see your progress against the scheduled timeline
+15. Monitor your Focus Garden to see overall progress and mode time breakdown
 
 ### End of day
-14. Mark completed tasks as done with `d`
-15. Postpone unfinished work with `p` (moves to tomorrow's file)
-16. Archive tasks that are no longer relevant with `r` or `x`
-17. Review your journal, Focus Garden stats, and mode time distribution
-18. Switch to Sleep mode (🌙) if desired to track rest time
-19. Quit with `q` - everything autosaves
-20. If the app runs past midnight, it will automatically:
+16. Mark completed tasks as done with `d`
+17. Postpone unfinished work with `p` (moves to tomorrow's file)
+18. Archive tasks that are no longer relevant with `r` or `x`
+19. Review your journal, Focus Garden stats, daily planner, and mode time distribution
+20. Switch to Sleep mode (🌙) if desired to track rest time
+21. Quit with `q` - everything autosaves
+22. If the app runs past midnight, it will automatically:
     - Generate a report for the day that just ended (including mode times)
     - Show a modal requiring restart for the new day
 
@@ -388,7 +455,9 @@ centre/
 │   ├── report/              # Statistics calculation and report generation
 │   │   ├── stats.rs         # Statistics aggregation (global, tag, estimation)
 │   │   └── generator.rs     # Markdown report generation with mode stats
-│   ├── ui/                  # Ratatui rendering (list, details, garden, journal panes, modals)
+│   ├── ui/                  # Ratatui rendering (list, details, garden, journal, planner panes, modals)
+│   │   ├── daily_planner_pane.rs  # Daily timeline visualization with 15-minute slots
+│   │   └── ...
 │   ├── input/               # Keybinding handler for all UI modes
 │   └── ticker.rs            # Timer tick logic
 ```
@@ -472,6 +541,8 @@ Run `centre` to see which directory is active (shown at startup). Use `centre in
 - ✅ Local and global directory modes
 - ✅ Undo functionality for done, archive, and delete actions (up to 10 actions)
 - ✅ Scrollable done tasks view with hierarchical subtask display
+- ✅ Daily planner with visual timeline (9am-midnight, 15-minute slots)
+- ✅ Planner scrolling and auto-scroll to current time
 - ✅ Enhanced keybindings hint bar showing all available commands
 
 ### v1.1 (Planned)

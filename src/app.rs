@@ -651,10 +651,11 @@ impl AppState {
                 self.tasks.remove(task_idx)
             };
 
+            // Postpone (pauses if running, sets to Idle)
             item.postpone();
 
             // Load tomorrow's file (if it exists), add the item, and save
-            use crate::persistence::{daily_file, parse_daily_file, serialize_daily_file, atomic_write};
+            use crate::persistence::{daily_file, parse_daily_file, atomic_write};
             let tomorrow_date = chrono::Local::now().date_naive() + chrono::Duration::days(1);
             let tomorrow_path = daily_file(tomorrow_date)?;
 
@@ -669,7 +670,8 @@ impl AppState {
             tomorrow_active.push(item);
 
             // Save tomorrow's file with only active tasks (done/archived stay in their original day)
-            let tomorrow_content = serialize_daily_file(&tomorrow_active, &Vec::new(), &Vec::new());
+            use crate::persistence::serialize_daily_file_with_date;
+            let tomorrow_content = serialize_daily_file_with_date(&tomorrow_active, &_tomorrow_done, &_tomorrow_archived, tomorrow_date);
             atomic_write(&tomorrow_path, &tomorrow_content)?;
 
             // Adjust selection if needed
@@ -1168,12 +1170,13 @@ impl AppState {
 
     /// Save state to disk (uses new daily file format)
     pub fn save(&mut self) -> Result<()> {
-        use crate::persistence::{serialize_daily_file, today_file, atomic_write};
+        use crate::persistence::{serialize_daily_file, daily_file, atomic_write};
 
-        // Save today's daily file with ACTIVE, DONE, and ARCHIVED sections
+        // Save daily file using file_date (not current system date)
+        // This ensures we save to the correct day's file even if midnight has passed
         let daily_content = serialize_daily_file(&self.tasks, &self.done_today, &self.archived_today);
-        let today_path = today_file()?;
-        atomic_write(today_path, &daily_content)?;
+        let file_path = daily_file(self.file_date)?;
+        atomic_write(file_path, &daily_content)?;
 
         // Save metadata (global mode, etc.)
         self.save_metadata()?;
@@ -1185,8 +1188,9 @@ impl AppState {
     /// Save journal if needed
     pub fn save_journal(&mut self) -> Result<()> {
         if self.journal_needs_save {
-            use crate::persistence::{journal_file, atomic_write};
-            let journal_path = journal_file()?;
+            use crate::persistence::{journal_file_for_date, atomic_write};
+            // Use file_date to ensure we save to the correct day's journal even if midnight has passed
+            let journal_path = journal_file_for_date(self.file_date)?;
             atomic_write(journal_path, &self.journal_content)?;
             self.journal_needs_save = false;
         }
