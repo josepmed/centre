@@ -167,8 +167,9 @@ fn build_time_grid(_current_time: NaiveTime) -> Vec<NaiveTime> {
 fn schedule_tasks(app: &AppState, current_time: NaiveTime) -> Vec<TaskBlock> {
     let mut blocks = Vec::new();
 
-    // Start time accumulator
-    let mut accumulated_minutes = current_time.hour() as i64 * 60 + current_time.minute() as i64;
+    // Start time accumulator - round UP to next 15-minute slice
+    let current_minutes = current_time.hour() as i64 * 60 + current_time.minute() as i64;
+    let mut accumulated_minutes = ((current_minutes + SLICE_MINUTES - 1) / SLICE_MINUTES) * SLICE_MINUTES;
 
     // Process all tasks and subtasks
     for (task_idx, task) in app.tasks.iter().enumerate() {
