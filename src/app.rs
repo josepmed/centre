@@ -86,6 +86,7 @@ pub struct AppState {
     // Global mode tracking
     pub global_mode: GlobalMode,
     pub last_mode_change: Instant,
+    pub last_mode_change_timestamp: Option<chrono::DateTime<chrono::Local>>, // Wall clock time of last mode change
     pub mode_time_working: Duration,
     pub mode_time_break: Duration,
     pub mode_time_lunch: Duration,
@@ -167,6 +168,11 @@ impl AppState {
         let mode_time_personal = Duration::seconds(metadata.mode_time_personal_secs);
         let mode_time_sleep = Duration::seconds(metadata.mode_time_sleep_secs);
 
+        // Parse the last mode change timestamp
+        let last_mode_change_timestamp = metadata.last_mode_change_timestamp
+            .and_then(|ts| chrono::DateTime::parse_from_rfc3339(&ts).ok())
+            .map(|dt| dt.with_timezone(&chrono::Local));
+
         Self {
             tasks,
             done_today,
@@ -203,6 +209,7 @@ impl AppState {
             // Initialize global mode tracking from loaded metadata
             global_mode: metadata.global_mode,
             last_mode_change: now,
+            last_mode_change_timestamp,
             mode_time_working,
             mode_time_break,
             mode_time_lunch,
@@ -253,7 +260,8 @@ impl AppState {
             mode_time_dinner_secs: mode_times[4].1.num_seconds(),
             mode_time_personal_secs: mode_times[5].1.num_seconds(),
             mode_time_sleep_secs: mode_times[6].1.num_seconds(),
-            last_mode_change_timestamp: Some(chrono::Local::now().to_rfc3339()),
+            // Use the timestamp from AppState (only updated when mode changes)
+            last_mode_change_timestamp: self.last_mode_change_timestamp.map(|dt| dt.to_rfc3339()),
         };
 
         let meta_path = meta_file()?;
@@ -1463,6 +1471,8 @@ impl AppState {
         }
 
         self.last_mode_change = now;
+        // Update the wall clock timestamp to track when mode changed (for day boundary detection)
+        self.last_mode_change_timestamp = Some(chrono::Local::now());
 
         // Handle task state changes based on mode
         if mode.should_pause_timers() && !previous_mode.should_pause_timers() {
@@ -1676,7 +1686,11 @@ mod tests {
             Duration::hours(2),
             ScheduleDay::Today,
         );
-        AppState::new(vec![task1, task2], Vec::new(), Vec::new(), String::new())
+        let mut app = AppState::new(vec![task1, task2], Vec::new(), Vec::new(), String::new());
+        // Ensure tests always start in Working mode (ignore any loaded metadata)
+        app.global_mode = GlobalMode::Working;
+        app.last_mode_change_timestamp = Some(chrono::Local::now());
+        app
     }
 
     #[test]
